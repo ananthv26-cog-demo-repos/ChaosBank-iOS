@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var showTransfer = false
     @State private var showAddMoney = false
     @State private var showPay = false
+    @State private var showExchange = false
 
     var body: some View {
         content
@@ -26,6 +27,9 @@ struct HomeView: View {
             .sheet(isPresented: $showTransfer) {
                 if LaunchOptions.current.uiKit { UIKitTransferView() } else { TransferView() }
             }
+            .sheet(isPresented: $showExchange) {
+                if LaunchOptions.current.uiKit { UIKitExchangeView() } else { ExchangeView() }
+            }
             .sheet(isPresented: $showAddMoney) { AddMoneyView() }
             .sheet(isPresented: $showPay) { NavigationStack { LoansView() } }
     }
@@ -33,6 +37,7 @@ struct HomeView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                HappenOfflineBanner()
                 header
                 quickActions
                     .padding(.horizontal, 20)
@@ -104,7 +109,7 @@ struct HomeView: View {
 
     private var quickActions: some View {
         HStack(spacing: 12) {
-            HappenQuickAction(title: "Transfer", a11y: A11y.Home.quickActionTransfer, action: { showTransfer = true }) {
+            HappenQuickAction(title: "Transfer", a11y: A11y.Home.quickActionTransfer, action: openTransfer) {
                 Image(systemName: "arrow.left.arrow.right")
                     .font(.system(size: 22, weight: .regular))
             }
@@ -116,6 +121,11 @@ struct HomeView: View {
                     .font(.system(size: 25, weight: .regular))
             }
         }
+    }
+
+    /// `quickActionTransferOpensExchange` wires Transfer to the Exchange sheet.
+    private func openTransfer() {
+        if Defects.isActive(.quickActionTransferOpensExchange) { showExchange = true } else { showTransfer = true }
     }
 
     private var depositSection: some View {

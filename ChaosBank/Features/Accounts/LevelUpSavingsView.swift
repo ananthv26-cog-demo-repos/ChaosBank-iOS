@@ -51,6 +51,7 @@ struct LevelUpSavingsView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                HappenOfflineBanner()
                 balanceHeader
                 if account.earnsLevelUpRate {
                     depositGoalCard(HappenSeed.savingsGoal)

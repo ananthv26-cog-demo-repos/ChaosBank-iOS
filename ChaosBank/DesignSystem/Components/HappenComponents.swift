@@ -106,3 +106,22 @@ struct HappenDepositIcon: View {
         }
     }
 }
+
+/// Offline indicator for Happen screens; same gate and locator as `ChaosBankScreen`.
+struct HappenOfflineBanner: View {
+    @Environment(AppServices.self) private var services
+
+    var body: some View {
+        if services.offline && !Defects.isActive(.offlineBannerMissing) {
+            Text("You're offline — showing cached data")
+                .font(.happen(13, .semibold))
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(HappenColor.orange, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .accessibilityIdentifier(A11y.Net.offlineBanner)
+        }
+    }
+}
