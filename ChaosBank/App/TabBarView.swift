@@ -60,7 +60,7 @@ struct TabBarView: View {
             }
             .tag(3)
         }
-        .tint(Palette.sand)
+        .tint(HappenColor.blue)
         .accessibilityIdentifier(A11y.TabBar.root)
         .onChange(of: router.tab) { _, tab in
             if let tab { selection = tab }

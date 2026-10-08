@@ -129,6 +129,26 @@ enum A11y {
         static let recentActivity = "home.recentActivity"
         static func activityRow(_ id: String) -> String { "home.activity.\(id)" }
         static let seeAllActivity = "home.seeAllActivity"
+        static let greeting = "home.greeting"
+        static let help = "home.help"
+        static let profile = "home.profile"
+        static let quickActionPay = "home.quickAction.pay"
+        static func depositAccount(_ id: String) -> String { "home.depositAccount.\(id)" }
+        static func loanAccount(_ id: String) -> String { "home.loanAccount.\(id)" }
+    }
+
+    enum AccountDetail {
+        static let root = "accountDetail.root"
+        static let back = "accountDetail.back"
+        static let title = "accountDetail.title"
+        static let balance = "accountDetail.balance"
+        static let levelUpCard = "accountDetail.levelUpCard"
+        static let detailsToggle = "accountDetail.detailsToggle"
+        static let progress = "accountDetail.progress"
+        static let actionTransfer = "accountDetail.action.transfer"
+        static let actionDeposit = "accountDetail.action.deposit"
+        static let actionMore = "accountDetail.action.more"
+        static func row(_ id: String) -> String { "accountDetail.row.\(id)" }
     }
 
     enum Transfer {

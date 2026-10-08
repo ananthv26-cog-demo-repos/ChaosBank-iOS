@@ -2,195 +2,209 @@
 //  HomeView.swift
 //  ChaosBank
 //
+//  Happen Bank home: greeting, quick actions, deposit accounts and loans.
+//
 
 import SwiftUI
 
 struct HomeView: View {
-    @Environment(AppServices.self) private var services
-    @State private var vm: HomeViewModel?
     @State private var showTransfer = false
-    @State private var showExchange = false
     @State private var showAddMoney = false
-    @State private var showNotifications = false
+    @State private var showPay = false
+    @State private var showExchange = false
 
     var body: some View {
-        ChaosBankScreen(title: "Home", a11y: A11y.Home.root) {
-            if let vm {
-                content(vm)
+        content
+            .environment(\.colorScheme, .light)
+            .background(HappenColor.background.ignoresSafeArea())
+            .accessibilityIdentifier(A11y.Home.root)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { toolbarItems }
+            .happenChrome()
+            .navigationDestination(for: HappenDepositAccount.self) { account in
+                LevelUpSavingsView(account: account)
             }
-        }
-        .task {
-            if vm == nil { vm = HomeViewModel(services: services) }
-            await vm?.load()
-        }
-        .onChange(of: services.dataVersion) {
-            Task { await vm?.refreshAfterMutation() }
-        }
-        .sheet(isPresented: $showTransfer) {
-            if LaunchOptions.current.uiKit { UIKitTransferView() } else { TransferView() }
-        }
-        .sheet(isPresented: $showExchange) {
-            if LaunchOptions.current.uiKit { UIKitExchangeView() } else { ExchangeView() }
-        }
-        .sheet(isPresented: $showAddMoney) { AddMoneyView() }
-        .sheet(isPresented: $showNotifications) { NotificationsView() }
+            .sheet(isPresented: $showTransfer) {
+                if LaunchOptions.current.uiKit { UIKitTransferView() } else { TransferView() }
+            }
+            .sheet(isPresented: $showExchange) {
+                if LaunchOptions.current.uiKit { UIKitExchangeView() } else { ExchangeView() }
+            }
+            .sheet(isPresented: $showAddMoney) { AddMoneyView() }
+            .sheet(isPresented: $showPay) { NavigationStack { LoansView() } }
     }
 
-    @ViewBuilder
-    private func content(_ vm: HomeViewModel) -> some View {
-        @Bindable var vm = vm
-
-        // Notifications bell + unread badge (Platform cluster).
-        HStack {
-            Spacer()
-            Button { showNotifications = true } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "bell.fill").foregroundStyle(Palette.sand)
-                    if services.notifications.unreadCount > 0 {
-                        Text("\(services.notifications.unreadCount)")
-                            .font(.appMono(12, weight: .bold))
-                            .foregroundStyle(Palette.bg)
-                            .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background(Palette.loss)
-                            .clipShape(Capsule())
-                            .accessibilityIdentifier(A11y.Notifications.badge)
-                    }
-                }
-            }
-            .accessibilityIdentifier(A11y.Notifications.bell)
-        }
-
-        // Balance card
-        CardSurface {
-            VStack(alignment: .leading, spacing: 14) {
-                SegmentBar(
-                    items: Currency.allCases.map {
-                        SegmentItem(id: $0.code, title: $0.code,
-                                    a11y: "\(A11y.Home.currencySegment).\($0.code)")
-                    },
-                    selection: Binding(
-                        get: { vm.selectedCurrency.code },
-                        set: { vm.selectedCurrency = Currency(rawValue: $0) ?? .EUR }
-                    )
-                )
-                .accessibilityIdentifier(A11y.Home.currencySegment)
-
-                Text("Total balance")
-                    .font(.appBody(13))
-                    .foregroundStyle(Palette.muted)
-                Text(vm.totalBalanceText)
-                    .moneyStyle(34, weight: .bold)
-                    .foregroundStyle(Palette.text)
-                    .accessibilityIdentifier(A11y.Home.totalBalance)
-
-                HStack(spacing: 6) {
-                    Image(systemName: vm.todayChange.amount < 0 ? "arrow.down.right" : "arrow.up.right")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("\(vm.todayChange.formattedSigned) · \(MoneyFormat.percent(vm.todayChangePercent)) today")
-                        .moneyStyle(13, weight: .medium)
-                }
-                .foregroundStyle(Palette.pnl(vm.todayChange.amount))
-                .accessibilityIdentifier(A11y.Home.todayChange)
+    private var content: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                HappenOfflineBanner()
+                header
+                quickActions
+                    .padding(.horizontal, 20)
+                    .padding(.top, 22)
+                HappenBand().padding(.top, 28)
+                depositSection
+                HappenBand()
+                loanSection
+                HappenBand()
+                Text("Demo app with synthetic data. Not affiliated with Happen Bank.")
+                    .font(.happen(12))
+                    .foregroundStyle(HappenColor.inkSecondary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
             }
         }
+        .scrollIndicators(.hidden)
+    }
 
-        // Account strip. `accountStripHidesGBP` drops the GBP card.
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(vm.accounts.filter { !(Defects.isActive(.accountStripHidesGBP) && $0.currency == .GBP) }) { account in
-                    accountCard(account, selected: vm.selectedCurrency)
-                        .onTapGesture { vm.selectedCurrency = account.currency }
-                }
+    @ToolbarContentBuilder
+    private var toolbarItems: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {} label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 25, weight: .light))
             }
-        }
+            .tint(HappenColor.ink)
+            .accessibilityLabel("Help")
+            .accessibilityIdentifier(A11y.Home.help)
 
-        // Quick actions. `quickActionTransferOpensExchange` wires Transfer to the
-        // Exchange sheet.
+            Button {} label: {
+                Image(systemName: "person")
+                    .font(.system(size: 23, weight: .light))
+            }
+            .tint(HappenColor.ink)
+            .accessibilityLabel("Profile")
+            .accessibilityIdentifier(A11y.Home.profile)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Image("HappenMark")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 34)
+                .accessibilityLabel("Happen Bank")
+                .padding(.top, 8)
+            Text("\(greetingPrefix), \(HappenSeed.firstName)")
+                .font(.happen(26, .bold))
+                .foregroundStyle(HappenColor.greeting)
+                .padding(.top, 14)
+                .accessibilityIdentifier(A11y.Home.greeting)
+            Text("How would you like to get started?")
+                .font(.happen(16))
+                .foregroundStyle(HappenColor.inkSecondary)
+                .padding(.top, 4)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var greetingPrefix: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case ..<12: "Good morning"
+        case ..<17: "Good afternoon"
+        default: "Good evening"
+        }
+    }
+
+    private var quickActions: some View {
         HStack(spacing: 12) {
-            quickAction("Transfer", "arrow.left.arrow.right", A11y.Home.quickActionTransfer) {
-                if Defects.isActive(.quickActionTransferOpensExchange) { showExchange = true } else { showTransfer = true }
+            HappenQuickAction(title: "Transfer", a11y: A11y.Home.quickActionTransfer, action: openTransfer) {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 22, weight: .regular))
             }
-            quickAction("Exchange", "arrow.2.squarepath", A11y.Home.quickActionExchange) { showExchange = true }
-            quickAction("Add", "plus", A11y.Home.quickActionAddMoney) { showAddMoney = true }
-            NavigationLink {
-                CardView()
-            } label: {
-                quickActionLabel("Card", "creditcard")
+            HappenQuickAction(title: "Deposit", a11y: A11y.Home.quickActionAddMoney, action: { showAddMoney = true }) {
+                HappenDepositIcon()
             }
-            .accessibilityIdentifier(A11y.Home.quickActionCard)
+            HappenQuickAction(title: "Pay", a11y: A11y.Home.quickActionPay, action: { showPay = true }) {
+                Image(systemName: "dollarsign.circle")
+                    .font(.system(size: 25, weight: .regular))
+            }
         }
+    }
 
-        // Recent activity
-        VStack(alignment: .leading, spacing: 12) {
-            NavigationLink {
-                // The "views build" renders this screen with UIKit; SwiftUI otherwise.
-                if LaunchOptions.current.uiKit {
-                    UIKitTransactionsView().navigationTitle("Transactions")
-                } else {
-                    TransactionsView()
+    /// `quickActionTransferOpensExchange` wires Transfer to the Exchange sheet.
+    private func openTransfer() {
+        if Defects.isActive(.quickActionTransferOpensExchange) { showExchange = true } else { showTransfer = true }
+    }
+
+    private var depositSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionTitle("Checking, Savings & CD")
+            ForEach(Array(HappenSeed.depositAccounts.enumerated()), id: \.element.id) { index, account in
+                if index > 0 { HappenHairline().padding(.leading, 20) }
+                NavigationLink(value: account) {
+                    accountRow(
+                        balance: account.balance,
+                        product: account.product,
+                        mask: account.maskedNumber,
+                        levelUp: account.earnsLevelUpRate
+                    )
                 }
-            } label: {
-                SectionHeader(title: "Recent activity", trailing: "See all")
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(A11y.Home.depositAccount(account.id))
             }
-            .accessibilityIdentifier(A11y.Home.seeAllActivity)
+        }
+    }
 
-            CardSurface(padding: 8) {
-                VStack(spacing: 0) {
-                    ForEach(Array(vm.recent.enumerated()), id: \.offset) { index, tx in
-                        TransactionRowView(tx: tx, a11y: A11y.Home.activityRow(tx.id))
-                        if index < vm.recent.count - 1 {
-                            Divider().overlay(Palette.line)
-                        }
-                    }
+    private var loanSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionTitle("Personal Loans")
+            ForEach(HappenSeed.loans) { loan in
+                Button { showPay = true } label: {
+                    accountRow(
+                        balance: loan.balance,
+                        product: loan.product,
+                        mask: "...\(loan.mask)",
+                        levelUp: false,
+                        footnote: "Next payment \(HappenFormat.usd(loan.nextPayment)) due \(loan.dueDate)"
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(A11y.Home.loanAccount(loan.id))
+            }
+        }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.happen(20, .semibold))
+            .foregroundStyle(HappenColor.ink)
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func accountRow(balance: Decimal, product: String, mask: String, levelUp: Bool, footnote: String? = nil) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                if levelUp {
+                    LevelUpPill().padding(.bottom, 10)
+                }
+                Text(HappenFormat.usd(balance))
+                    .font(.happen(30, .semibold))
+                    .foregroundStyle(HappenColor.ink)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(product).font(.happen(17))
+                    Text(mask).font(.happen(15))
+                }
+                .foregroundStyle(HappenColor.ink)
+                .padding(.top, 4)
+                if let footnote {
+                    Text(footnote)
+                        .font(.happen(14))
+                        .foregroundStyle(HappenColor.inkSecondary)
+                        .padding(.top, 6)
                 }
             }
-            .accessibilityIdentifier(A11y.Home.recentActivity)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 17, weight: .light))
+                .foregroundStyle(HappenColor.inkSecondary)
+                .padding(.top, 2)
         }
-    }
-
-    private func accountCard(_ account: Account, selected: Currency) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(account.currency.symbol)
-                    .font(.appDisplay(16, weight: .bold))
-                    .foregroundStyle(Palette.sand)
-                Text(account.name)
-                    .font(.appBody(13, weight: .medium))
-                    .foregroundStyle(Palette.muted)
-            }
-            Text(Money(account.balance, account.currency).formatted)
-                .moneyStyle(19, weight: .semibold)
-                .foregroundStyle(Palette.text)
-        }
-        .padding(14)
-        .frame(width: 180, alignment: .leading)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(account.currency == selected ? Palette.sand : Palette.line,
-                        lineWidth: account.currency == selected ? 1.5 : 1)
-        )
-        .accessibilityIdentifier(A11y.Home.account(account.currency))
-    }
-
-    private func quickAction(_ title: String, _ icon: String, _ a11y: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { quickActionLabel(title, icon) }
-            .accessibilityIdentifier(a11y)
-    }
-
-    private func quickActionLabel(_ title: String, _ icon: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Palette.sand)
-                .frame(width: 46, height: 46)
-                .background(Palette.surface2)
-                .clipShape(Circle())
-            Text(title)
-                .font(.appBody(12, weight: .medium))
-                .foregroundStyle(Palette.muted)
-        }
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 22)
+        .contentShape(Rectangle())
     }
 }
