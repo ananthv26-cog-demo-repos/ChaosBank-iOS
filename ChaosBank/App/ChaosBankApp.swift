@@ -15,6 +15,7 @@ struct ChaosBankApp: App {
     @State private var router = DeepLinkRouter()
 
     init() {
+        HappenFont.register()
         let config = BuildConfig.resolve()
         Defects.configure(config)
         _services = State(initialValue: AppServices(config: config))
